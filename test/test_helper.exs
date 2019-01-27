@@ -18,6 +18,7 @@ check_version =
 exclude = Keyword.merge([to_be_implemented: true], check_version)
 
 ExUnit.configure(exclude: exclude)
+ExUnit.configure(formatters: [ExUnit.CLIFormatter, TestmetricsElixirClient])
 
 defmodule Credo.TestHelper do
   defmacro __using__(_) do

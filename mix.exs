@@ -48,7 +48,8 @@ defmodule Credo.Mixfile do
       {:bunt, "~> 0.2.0"},
       {:jason, "~> 1.0"},
       {:ex_doc, "~> 0.16", only: :dev, runtime: false},
-      {:inch_ex, "~> 0.1", only: [:dev, :test], runtime: false}
+      {:inch_ex, "~> 0.1", only: [:dev, :test], runtime: false},
+      {:testmetrics_elixir_client, "~> 1.2", only: [:test]}
     ]
   end
 end
