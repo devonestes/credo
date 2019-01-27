@@ -1,10 +1,12 @@
 defmodule Credo.Check.Readability.PredicateFunctionNames do
-  @moduledoc """
+  @moduledoc false
+
+  @checkdoc """
   Predicate functions/macros should be named accordingly:
 
   * For functions, they should end in a question mark.
 
-      # okay
+      # preferred
 
       defp user?(cookie) do
       end
@@ -12,7 +14,7 @@ defmodule Credo.Check.Readability.PredicateFunctionNames do
       defp has_attachment?(mail) do
       end
 
-      # not okay
+      # NOT preferred
 
       defp is_user?(cookie) do
       end
@@ -26,14 +28,13 @@ defmodule Credo.Check.Readability.PredicateFunctionNames do
   But you can improve the odds of others reading and liking your code by making
   it easier to follow.
   """
-
-  @explanation [check: @moduledoc]
+  @explanation [check: @checkdoc]
   @def_ops [:def, :defp, :defmacro]
 
   use Credo.Check, base_priority: :high
 
   @doc false
-  def run(%SourceFile{} = source_file, params \\ []) do
+  def run(source_file, params \\ []) do
     issue_meta = IssueMeta.for(source_file, params)
 
     Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta))
@@ -44,10 +45,16 @@ defmodule Credo.Check.Readability.PredicateFunctionNames do
     defp traverse({unquote(op), _meta, nil} = ast, issues, _issue_meta) do
       {ast, issues}
     end
-    defp traverse({unquote(op) = op, _meta, arguments} = ast, issues, issue_meta) do
+
+    defp traverse(
+           {unquote(op) = op, _meta, arguments} = ast,
+           issues,
+           issue_meta
+         ) do
       {ast, issues_for_definition(op, arguments, issues, issue_meta)}
     end
   end
+
   defp traverse(ast, issues, _issue_meta) do
     {ast, issues}
   end
@@ -56,6 +63,7 @@ defmodule Credo.Check.Readability.PredicateFunctionNames do
     case Enum.at(body, 0) do
       {name, meta, nil} ->
         issues_for_name(op, name, meta, issues, issue_meta)
+
       _ ->
         issues
     end
@@ -63,20 +71,29 @@ defmodule Credo.Check.Readability.PredicateFunctionNames do
 
   def issues_for_name(_op, name, meta, issues, issue_meta) do
     name = to_string(name)
+
     cond do
       String.starts_with?(name, "is_") && String.ends_with?(name, "?") ->
-        [issue_for(issue_meta, meta[:line], name, :predicate_and_question_mark) | issues]
+        [
+          issue_for(issue_meta, meta[:line], name, :predicate_and_question_mark)
+          | issues
+        ]
+
       String.starts_with?(name, "is_") ->
         [issue_for(issue_meta, meta[:line], name, :only_predicate) | issues]
+
       true ->
         issues
     end
   end
 
   defp issue_for(issue_meta, line_no, trigger, _) do
-    format_issue issue_meta,
-      message: "Predicate function names should not start with 'is', and should end in a question mark.",
+    format_issue(
+      issue_meta,
+      message:
+        "Predicate function names should not start with 'is', and should end in a question mark.",
       trigger: trigger,
       line_no: line_no
+    )
   end
 end

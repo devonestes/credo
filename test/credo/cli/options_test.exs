@@ -5,8 +5,10 @@ defmodule Credo.CLI.OptionsTest do
   @command_names ["cmd1", "cmd2", "cmd3"]
   @fixture_name "options"
 
+  doctest Credo.CLI.Options
+
   defp fixture_path(name) do
-    Path.join([File.cwd!, "test", "fixtures", name])
+    Path.join([File.cwd!(), "test", "fixtures", name])
   end
 
   defp expand_path(name) do
@@ -15,7 +17,7 @@ defmodule Credo.CLI.OptionsTest do
 
   defp parse(args) do
     dir = fixture_path(@fixture_name)
-    Options.parse(args, dir, @command_names)
+    Options.parse(args, dir, @command_names, [])
   end
 
   defp switches(args), do: parse(args).switches
@@ -23,18 +25,56 @@ defmodule Credo.CLI.OptionsTest do
   test "switches: it should work" do
     args = String.split("cmd1 --strict --version")
     expected = %{strict: true, version: true}
+
     assert expected == switches(args)
   end
 
   test "switches: it should not work w/ a funny typo: cash/crash" do
     args = String.split("--cash-on-error --version")
     expected = %{version: true}
+
     assert expected == switches(args)
   end
 
   test "switches: it should not work w/ a string given for a number" do
     args = String.split("--min-priority=abc --version")
     expected = %{version: true}
+
+    assert expected == switches(args)
+  end
+
+  test "switches: it should convert min_priority high to 10" do
+    args = String.split("--min-priority=high --version")
+    expected = %{version: true, min_priority: 10}
+
+    assert expected == switches(args)
+  end
+
+  test "switches: it should convert min_priority normal to 1" do
+    args = String.split("--min-priority=normal --version")
+    expected = %{version: true, min_priority: 1}
+
+    assert expected == switches(args)
+  end
+
+  test "switches: it should convert min_priority low to -10" do
+    args = String.split("--min-priority=low --version")
+    expected = %{version: true, min_priority: -10}
+
+    assert expected == switches(args)
+  end
+
+  test "switches: it should convert min_priority to integer" do
+    args = String.split("--min-priority=-1234 --version")
+    expected = %{version: true, min_priority: -1234}
+
+    assert expected == switches(args)
+  end
+
+  test "switches: it should reject float min_priority" do
+    args = String.split("--min-priority=-1234.12 --version")
+    expected = %{version: true}
+
     assert expected == switches(args)
   end
 
@@ -83,6 +123,6 @@ defmodule Credo.CLI.OptionsTest do
     args = String.split("src/**/*.ex --strict --version")
     options = parse(args)
     assert is_nil(options.command)
-    assert expand_path("src/**/*.ex") == options.path
+    assert "src/**/*.ex" == options.path
   end
 end

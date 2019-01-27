@@ -1,15 +1,7 @@
 defmodule Credo.ConfigFile do
   @doc """
-  The ConfigFile struct represents all loaded and merged config files run the
-  current run.
+  `ConfigFile` structs represent all loaded and merged config files in a run.
   """
-
-  defstruct files:              nil,
-            color:              true,
-            checks:             nil,
-            requires:           [],
-            strict:             false,
-            check_for_updates:  true  # checks if there is a new version of Credo
 
   @config_filename ".credo.exs"
   @default_config_name "default"
@@ -19,8 +11,16 @@ defmodule Credo.ConfigFile do
   @default_files_included [@default_glob]
   @default_files_excluded []
 
+  defstruct files: nil,
+            color: true,
+            checks: nil,
+            requires: [],
+            strict: false,
+            # checks if there is a new version of Credo
+            check_for_updates: true
+
   @doc """
-  Returns Config struct representing a consolidated Config for all `.credo.exs`
+  Returns Execution struct representing a consolidated Execution for all `.credo.exs`
   files in `relevant_directories/1` merged into the default configuration.
 
   - `config_name`: name of the configuration to load
@@ -30,9 +30,27 @@ defmodule Credo.ConfigFile do
   def read_or_default(dir, config_name \\ nil, safe \\ false) do
     dir
     |> relevant_config_files
+    |> combine_configs(dir, config_name, safe)
+  end
+
+  @doc """
+  Returns Execution struct representing a consolidated Execution for
+  the provided config_file merged into the default configuration.
+
+  - `config_file`: full path to the custom configuration file
+  - `config_name`: name of the configuration to load
+  - `safe`: if +true+, the config files are loaded using static analysis rather
+            than `Code.eval_string/1`
+  """
+  def read_from_file_path(dir, config_file, config_name \\ nil, safe \\ false) do
+    combine_configs([config_file], dir, config_name, safe)
+  end
+
+  defp combine_configs(files, dir, config_name, safe) do
+    files
     |> Enum.filter(&File.exists?/1)
-    |> Enum.map(&File.read!/1)
-    |> List.insert_at(0, @default_config_file)
+    |> Enum.map(&{&1, File.read!(&1)})
+    |> List.insert_at(0, {:default, @default_config_file})
     |> Enum.map(&from_exs(dir, config_name || @default_config_name, &1, safe))
     |> merge
     |> add_given_directory_to_files(dir)
@@ -50,9 +68,9 @@ defmodule Credo.ConfigFile do
   """
   def relevant_directories(dir) do
     dir
-    |> Path.expand
-    |> Path.split
-    |> Enum.reverse
+    |> Path.expand()
+    |> Path.split()
+    |> Enum.reverse()
     |> get_dir_paths
     |> add_config_dirs
   end
@@ -60,34 +78,42 @@ defmodule Credo.ConfigFile do
   defp get_dir_paths(dirs), do: do_get_dir_paths(dirs, [])
 
   defp do_get_dir_paths(dirs, acc) when length(dirs) < 2, do: acc
+
   defp do_get_dir_paths([dir | tail], acc) do
     expanded_path =
       tail
-      |> Enum.reverse
-      |> Path.join
+      |> Enum.reverse()
+      |> Path.join()
       |> Path.join(dir)
 
     do_get_dir_paths(tail, [expanded_path | acc])
   end
 
   defp add_config_dirs(paths) do
-    Enum.flat_map(paths, fn(path) -> [path, Path.join(path, "config")] end)
+    Enum.flat_map(paths, fn path -> [path, Path.join(path, "config")] end)
   end
 
   defp add_config_files(paths) do
     for path <- paths, do: Path.join(path, @config_filename)
   end
 
-  defp from_exs(dir, config_name, exs_string, safe) do
-    exs_string
-    |> Credo.ExsLoader.parse(safe)
-    |> from_data(dir, config_name)
+  defp from_exs(dir, config_name, {filename, exs_string}, safe) do
+    case Credo.ExsLoader.parse(exs_string, safe) do
+      {:ok, data} ->
+        {:ok, from_data(data, dir, config_name)}
+
+      {:error, {line_no, description, trigger}} ->
+        {:error, {:badconfig, filename, line_no, description, trigger}}
+
+      {:error, reason} ->
+        {:error, {:badconfig, filename, reason}}
+    end
   end
 
   defp from_data(data, dir, config_name) do
     data =
       data[:configs]
-      |> List.wrap
+      |> List.wrap()
       |> Enum.find(&(&1[:name] == config_name))
 
     %__MODULE__{
@@ -106,12 +132,12 @@ defmodule Credo.ConfigFile do
 
     included_dir =
       included_files
-      |> List.wrap
+      |> List.wrap()
       |> Enum.map(&join_default_files_if_directory/1)
 
     %{
       included: included_dir,
-      excluded: files[:excluded] || @default_files_excluded,
+      excluded: files[:excluded] || @default_files_excluded
     }
   end
 
@@ -119,13 +145,14 @@ defmodule Credo.ConfigFile do
     case data[:checks] do
       checks when is_list(checks) ->
         checks
+
       _ ->
         []
     end
   end
 
   @doc """
-  Merges the given Config objects from left to right, meaning that later entries
+  Merges the given structs from left to right, meaning that later entries
   overwrites earlier ones.
 
       merge(base, other)
@@ -140,36 +167,54 @@ defmodule Credo.ConfigFile do
   def merge(list) when is_list(list) do
     base = List.first(list)
     tail = List.delete_at(list, 0)
+
     merge(tail, base)
   end
+
   def merge([], config), do: config
-  def merge([other|tail], base) do
+
+  def merge([other | tail], base) do
     new_base = merge(base, other)
+
     merge(tail, new_base)
   end
-  def merge(base, other) do
-    %__MODULE__{
+
+  # bubble up errors from parsing the config so we can deal with it at the top-level
+  def merge({:error, _} = a, _), do: a
+  def merge(_, {:error, _} = a), do: a
+
+  def merge({:ok, base}, {:ok, other}) do
+    config_file = %__MODULE__{
       check_for_updates: other.check_for_updates,
       requires: base.requires ++ other.requires,
       files: merge_files(base, other),
       checks: merge_checks(base, other),
       strict: other.strict,
-      color: other.color,
+      color: other.color
     }
+
+    {:ok, config_file}
   end
-  def merge_checks(%__MODULE__{checks: checks_base}, %__MODULE__{checks: checks_other}) do
+
+  def merge_checks(%__MODULE__{checks: checks_base}, %__MODULE__{
+        checks: checks_other
+      }) do
     base = normalize_check_tuples(checks_base)
     other = normalize_check_tuples(checks_other)
     Keyword.merge(base, other)
   end
-  def merge_files(%__MODULE__{files: files_base}, %__MODULE__{files: files_other}) do
+
+  def merge_files(%__MODULE__{files: files_base}, %__MODULE__{
+        files: files_other
+      }) do
     %{
       included: files_other[:included] || files_base[:included],
-      excluded: files_other[:excluded] || files_base[:excluded],
+      excluded: files_other[:excluded] || files_base[:excluded]
     }
   end
 
   defp normalize_check_tuples(nil), do: []
+
   defp normalize_check_tuples(list) when is_list(list) do
     Enum.map(list, &normalize_check_tuple/1)
   end
@@ -185,19 +230,23 @@ defmodule Credo.ConfigFile do
     end
   end
 
-  defp add_given_directory_to_files(%__MODULE__{files: files} = config, dir) do
+  defp add_given_directory_to_files({:error, _} = error, _dir) do
+    error
+  end
+
+  defp add_given_directory_to_files({:ok, %__MODULE__{files: files} = config}, dir) do
     files = %{
       included:
         files[:included]
         |> Enum.map(&add_directory_to_file(&1, dir))
-        |> Enum.uniq,
+        |> Enum.uniq(),
       excluded:
         files[:excluded]
         |> Enum.map(&add_directory_to_file(&1, dir))
-        |> Enum.uniq
+        |> Enum.uniq()
     }
 
-    %__MODULE__{config | files: files}
+    {:ok, %__MODULE__{config | files: files}}
   end
 
   defp add_directory_to_file(file_or_glob, dir) when is_binary(file_or_glob) do
@@ -211,6 +260,6 @@ defmodule Credo.ConfigFile do
       dir
     end
   end
-  defp add_directory_to_file(regex, _), do: regex
 
+  defp add_directory_to_file(regex, _), do: regex
 end

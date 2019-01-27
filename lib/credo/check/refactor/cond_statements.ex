@@ -1,5 +1,7 @@
 defmodule Credo.Check.Refactor.CondStatements do
-  @moduledoc """
+  @moduledoc false
+
+  @checkdoc """
   Each cond statement should have 3 or more statements including the
   "always true" statement. Otherwise an `if` and `else` construct might be more
   appropriate.
@@ -20,24 +22,23 @@ defmodule Credo.Check.Refactor.CondStatements do
     end
 
   """
-
-  @explanation [check: @moduledoc]
+  @explanation [check: @checkdoc]
 
   use Credo.Check
 
   @doc false
-  def run(%SourceFile{ast: ast} = source_file, params \\ []) do
+  def run(source_file, params \\ []) do
     issue_meta = IssueMeta.for(source_file, params)
 
-    Credo.Code.prewalk(ast, &traverse(&1, &2, issue_meta))
+    Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta))
   end
 
   defp traverse({:cond, meta, arguments} = ast, issues, issue_meta) do
     count =
       arguments
-      |> CodeHelper.do_block_for!
-      |> List.wrap
-      |> Enum.count
+      |> Credo.Code.Block.do_block_for!()
+      |> List.wrap()
+      |> Enum.count()
 
     if count <= 2 do
       {ast, issues ++ [issue_for(issue_meta, meta[:line], :cond)]}
@@ -45,14 +46,18 @@ defmodule Credo.Check.Refactor.CondStatements do
       {ast, issues}
     end
   end
+
   defp traverse(ast, issues, _issue_meta) do
     {ast, issues}
   end
 
   def issue_for(issue_meta, line_no, trigger) do
-    format_issue issue_meta,
-      message: "Cond statements should contain at least two conditions besides `true`.",
+    format_issue(
+      issue_meta,
+      message:
+        "Cond statements should contain at least two conditions besides `true`, consider using `if` instead.",
       trigger: trigger,
       line_no: line_no
+    )
   end
 end

@@ -1,12 +1,17 @@
 defmodule Credo.Check.Readability.RedundantBlankLines do
-  @moduledoc """
-  Files should not have two or more consecutive blank lines.
-  """
+  @moduledoc false
 
+  @checkdoc """
+  Files should not have two or more consecutive blank lines.
+
+  Like all `Readability` issues, this one is not a technical concern.
+  But you can improve the odds of others reading and liking your code by making
+  it easier to follow.
+  """
   @explanation [
-    check: @moduledoc,
+    check: @checkdoc,
     params: [
-      max_blank_lines: "The maximum number of tolerated consecutive blank lines.",
+      max_blank_lines: "The maximum number of tolerated consecutive blank lines."
     ]
   ]
   @default_params [
@@ -16,21 +21,24 @@ defmodule Credo.Check.Readability.RedundantBlankLines do
   use Credo.Check, base_priority: :low
 
   @doc false
-  def run(%SourceFile{lines: lines} = source_file, params \\ []) do
+  def run(source_file, params \\ []) do
     issue_meta = IssueMeta.for(source_file, params)
 
     max_blank_lines = Params.get(params, :max_blank_lines, @default_params)
 
-    lines
+    source_file
+    |> SourceFile.lines()
     |> blank_lines
     |> consecutive_lines(max_blank_lines)
     |> Enum.map(fn line -> issue_for(issue_meta, line, max_blank_lines) end)
   end
 
   defp issue_for(issue_meta, line, max_blank_lines) do
-    format_issue issue_meta,
+    format_issue(
+      issue_meta,
       message: "There should be no more than #{max_blank_lines} consecutive blank lines.",
       line_no: line
+    )
   end
 
   defp blank_lines(lines) do
@@ -41,7 +49,7 @@ defmodule Credo.Check.Readability.RedundantBlankLines do
 
   defp consecutive_lines([], _), do: []
 
-  defp consecutive_lines([first_line|other_lines], max_blank_lines) do
+  defp consecutive_lines([first_line | other_lines], max_blank_lines) do
     reducer = consecutive_lines_reducer(max_blank_lines)
 
     other_lines

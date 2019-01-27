@@ -1,5 +1,238 @@
 # Changelog
 
+## 1.0.1
+
+- Compilation warnings for Elixir 1.8
+- Fix `StringSigils` to not crash with strings containing non-UTF8 characters
+
+## 1.0.0
+
+- Improve documentation
+- Add error handling for malformed config files
+- Write all warnings to `:stderr`
+- Fix false positive for charlists in PipeChainStart
+- Remove deprecated --one-line switch
+- Deactivate checks `DuplicatedCode` and `DoubleBooleanNegation` by default
+
+### BREAKING CHANGES
+
+These changes concern people writing their own checks for Credo.
+
+- `Credo.Check.CodeHelper` was removed. Please use the corresponding functions inside the `Credo.Code` namespace.
+
+## 0.10.2
+
+- Fix bug in AliasOrder
+
+## 0.10.1
+
+- Fixed "unnecessary atom quotes" compiler warning during analysis
+- Handle timeouts when reading source files
+- Ignore function calls for OperationOnSameValues
+- Do not treat `|>` as an operator in SpaceAroundOperators
+- Fix AliasOrder bug for multi alias statements
+- Fix multiple false positives for SpaceAroundOperators
+- ... and lots of important little fixes to issue messages, docs and the like!
+
+## 0.10.0
+
+- Switch `poison` for `jason`
+- Add command-line switch to load a custom configuration file (`--config-file`)
+- Add a debug report in HTML format when running Credo using `--debug`
+- Add `node_modules/` to default file excludes
+- Add `:ignore_urls` param for MaxLineLength
+- Report violation for `not` as well as `!` in Refactor.NegatedConditionWithElse
+- Fix false positive on LargeNumbers
+- Fix NegatedConditionWithElse for `not/2` as well
+- Disable PreferUnquotedAtoms for Elixir >= 1.7.0
+
+### New checks
+
+- Credo.Check.Refactor.MapInto
+
+## 0.9.3
+
+- Fix bug in Scope
+- Fix false positive in MatchInConditionTest
+- Fix false positive in UnusedEnumOperation
+- Fix custom tasks by resolving config before validating it
+- Add text support to `--min-priority` CLI switch (you can now set it to low/normal/high)
+
+### New checks
+
+- Credo.Check.Readability.AliasOrder
+
+## 0.9.2
+
+- Add `:ignore_comments` param to LongQuoteBlocks
+- Fix false positive in UnusedPathOperation
+
+## 0.9.1
+
+- Fix false positive in SpaceAroundOperators
+- Fix false positive in UnusedEnumOperation
+
+## 0.9.0
+
+- Add JSON support
+- Ensure compatibility with Elixir 1.6
+- Format codebase using Elixir 1.6 Formatter
+- Rework internals in preparation of 1.0 release
+- Credo now requires Elixir 1.4
+- Include `test` directory in default config
+- Add `excluded_argument_types` to PipeChainStart
+- Emit warnings for non-existing checks, which are referenced in config
+- Improve VariableNames
+- ModuleDoc now raises an issue for empty strings in @moduledoc tags
+- Fix bug on ModuleNames
+- Fix false positive in VariableRebinding
+- Fix false positive in SpaceAroundOperators
+- Fix false positive on BoolOperationOnSameValues
+- Fix false positive on SpaceAfterCommas
+- Fix false positive on MaxLineLength
+- Fix false positive in ParenthesesInCondition
+- Remove `NameRedeclarationBy*` checks
+- Remove support for @lint attributes
+
+## 0.8.10
+
+- Maintenance release
+
+## 0.8.9
+
+- Fix false positive in ParenthesesInCondition
+- Fix Code.to_tokens/1 for Elixir 1.6
+- Fix documentation for several checks
+
+### New checks
+
+- Credo.Check.Warning.ExpensiveEmptyEnumCheck
+
+## 0.8.8
+
+- Fix false positive for `LargeNumbers`
+- Fix `SpaceAroundOperators` for @type module attributes
+- Ignore def arguments and specs for `OperationOnSameValues`
+- Fix crash in `ParenthesesOnZeroArityDefs` for variables named `defp`
+- Fix false positives for `TagHelper`
+
+## 0.8.7
+
+- Fix false positive in `ModuleAttributeNames`
+- Fix false positives in unused return checks
+- Fix underlining in "list" action
+- Fix CLI argument parsing for `mix credo.gen.check`
+- Fix loading of custom checks
+- Prevent error when run against empty umbrella projects
+- Prevent output for tests
+
+## 0.8.6
+
+- Fix false positive in SpaceAfterCommas
+- Fix false positive in SpaceAroundOperators
+- Fix bug with extracting explain command args
+- Allow anonymous functions to be piped as raw values
+
+## 0.8.5
+
+- Speed up scope counting in CLI summary
+
+## 0.8.4
+
+- Remove `CheckForUpdates` for good
+- Fix `RaiseInsideRescue` for implicit try
+
+## 0.8.3
+
+- Do not run `CheckForUpdates` on CI systems and in editor integrations
+
+## 0.8.2
+
+- Refactor all consistency checks, providing a nice speed improvement (thx @little-bobby-tables)
+- Improve Elixir 1.5 compatibility
+
+## 0.8.1
+
+- Fix misleading issue message for `LongQuoteBlocks`
+
+## 0.8.0
+
+- Load source files in parallel
+- Improve high memory consumption
+- Fix comment handling of Charlists, Sigils and Strings
+- `LazyLogging` now only checks for `debug` calls by default
+- Add `--mute-exit-status` CLI switch, which mutes Credo's exit status (this will be used for integration tests as it means that any non-zero exit status results from a runtime error of Credo)
+- Add default param values to `mix explain` output
+- `TagTODO` and `TagFIXME` now also report tags from doc-related module attributes (`@doc`, `@moduledoc`, `@shortdoc`)
+- Fix false positives for `TrailingWhiteSpace`
+- Fix compiler warnings for `Sigils`
+
+### BREAKING CHANGES
+
+These changes concern people writing their own checks for Credo.
+
+- `Credo.SourceFile` struct was refactored: `source`, `lines` and `ast` are now stored in ETS tables.
+- `Credo.Config` struct was replaced by `Credo.Execution`.
+- `run/3` callbacks for `Credo.Check` are now `run/4` callbacks as they have to receive the execution's `Credo.Execution` struct.
+
+### Config Comments replace `@lint` attributes
+
+`@lint` attributes are deprecated and will be removed in Credo `0.9.0` because
+they are causing a compiler warning in Elixir `>= 1.4`.
+
+Users of Credo can now disable individual lines or files for all or just
+specific checks.
+
+For now, config comments let you exclude individual files completely
+
+    # credo:disable-for-this-file
+    defmodule SomeApp.ThirdPartyCode do
+    end
+
+or deactivate specific lines:
+
+    def my_fun do
+      # credo:disable-for-next-line
+      IO.inspect :this_is_actually_okay
+    end
+
+or add the check module to exclude just that one check:
+
+    def my_fun do
+      # credo:disable-for-next-line Credo.Check.Warning.IoInspect
+      IO.inspect :this_is_actually_okay
+    end
+
+or use a Regex to be more flexible which checks to exclude:
+
+    def my_fun do
+      # credo:disable-for-next-line /IoInspect/
+      IO.inspect :this_is_actually_okay
+    end
+
+Here's a list with the syntax options:
+
+* `# credo:disable-for-this-file` - to disable for the entire file
+* `# credo:disable-for-next-line` - to disable for the next line
+* `# credo:disable-for-previous-line` - to disable for the previous line
+* `# credo:disable-for-lines:<count>` - to disable for the given number of lines (negative for previous lines)
+
+### New checks
+
+- Credo.Check.Refactor.LongQuoteBlocks
+
+## 0.7.4
+
+-	Fix false positives in SpacesAroundOperators
+- Fix `--all` CLI switch
+- Always enforce `strict` mode for `<filename>:<line_no>`
+- Improve docs on checks
+- Disable `MultiAliasImportRequireUse` by default
+
+### Disabled checks
+
+- Credo.Check.Consistency.MultiAliasImportRequireUse
+
 ## 0.7.3
 
 - Fix filename annotation when using `--read-from-stdin`

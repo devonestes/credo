@@ -1,4 +1,4 @@
-# Credo [![Build Status](https://travis-ci.org/rrrene/credo.svg?branch=master)](https://travis-ci.org/rrrene/credo) [![Deps Status](https://beta.hexfaktor.org/badge/all/github/rrrene/credo.svg?branch=master)](https://beta.hexfaktor.org/github/rrrene/credo) [![Inline docs](https://inch-ci.org/github/rrrene/credo.svg?branch=master)](https://inch-ci.org/github/rrrene/credo) [![Hex Version](https://img.shields.io/hexpm/v/credo.svg)](https://hex.pm/packages/credo) [![ElixirWeekly](https://img.shields.io/badge/featured-ElixirWeekly-a054ff.svg)](https://elixirweekly.net) [![Code Triagers Badge](https://www.codetriage.com/rrrene/credo/badges/users.svg)](https://www.codetriage.com/rrrene/credo)
+# Credo [![Build Status](https://travis-ci.org/rrrene/credo.svg?branch=master)](https://travis-ci.org/rrrene/credo) [![Inline docs](https://inch-ci.org/github/rrrene/credo.svg?branch=master)](https://inch-ci.org/github/rrrene/credo) [![Hex Version](https://img.shields.io/hexpm/v/credo.svg)](https://hex.pm/packages/credo) [![ElixirWeekly](https://img.shields.io/badge/featured-ElixirWeekly-a054ff.svg)](https://elixirweekly.net)
 
 Credo is a static code analysis tool for the Elixir language with a focus on teaching and code consistency.
 
@@ -6,7 +6,7 @@ It implements [its own style guide](https://github.com/rrrene/elixir-style-guide
 
 ## What can it do?
 
-`credo` can show you refactoring opportunities in your code, complex and duplicated code fragments, warn you about common mistakes, show inconsistencies in your naming scheme and - if needed - help you enforce a desired coding style.
+`credo` can show you refactoring opportunities in your code, complex code fragments, warn you about common mistakes, show inconsistencies in your naming scheme and - if needed - help you enforce a desired coding style.
 
 If you are a Rubyist it is best described as an opinionated mix between [Inch](https://github.com/rrrene/inch) and [Rubocop](https://github.com/bbatsov/rubocop).
 
@@ -23,7 +23,7 @@ Add `:credo` as a dependency to your project's `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:credo, "~> 0.7", only: [:dev, :test]}
+    {:credo, "~> 1.0.0", only: [:dev, :test], runtime: false}
   ]
 end
 ```
@@ -166,39 +166,40 @@ This also works for umbrella projects, where you can have individual `.credo.exs
 You can use `mix credo gen.config` to generate a complete example configuration.
 
 
-### Inline configuration via @lint attributes
+### Inline Configuration via Config Comments
 
-`@lint` attributes can be used to configure linting for specific functions.
-
-This lets you exclude functions completely
+Users of Credo can now disable individual lines or files for all or just
+specific checks.
 
 ```elixir
-@lint false
-def my_fun do
+defp do_stuff() do
+  # credo:disable-for-next-line
+  IO.inspect {:we_want_this_inspect_in_production!}
 end
 ```
 
-or deactivate specific checks *with the same syntax used in the config file*:
+There are four config comments:
+
+* `# credo:disable-for-this-file` - to disable for the entire file
+* `# credo:disable-for-next-line` - to disable for the next line
+* `# credo:disable-for-previous-line` - to disable for the previous line
+* `# credo:disable-for-lines:<count>` - to disable for the given number of lines (negative for previous lines)
+
+Each of these can also take the name of the check you want to disable:
 
 ```elixir
-@lint {Credo.Check.Design.TagTODO, false}
-def my_fun do
+defp my_fun() do
+  # credo:disable-for-next-line Credo.Check.Warning.IoInspect
+  IO.inspect {:we_want_this_inspect_in_production!}
 end
 ```
 
-or use a Regex instead of the check module to exclude multiple checks at once:
+Lastly, you can put a regular expression (`/.+/`) instead of a check name to disable multiple checks (or if you do not want to type out the checks):
 
 ```elixir
-@lint {~r/Refactor/, false}
-def my_fun do
-end
-```
-
-Finally, you can supply multiple tuples as a list and combine the above:
-
-```elixir
-@lint [{Credo.Check.Design.TagTODO, false}, {~r/Refactor/, false}]
-def my_fun do
+defp my_fun() do
+  # credo:disable-for-next-line /\.Warning\./
+  IO.inspect {:we_want_this_inspect_in_production!}
 end
 ```
 
@@ -242,7 +243,7 @@ Example usage:
 
     $ mix credo                         # display standard report
     $ mix credo suggest                 # same thing, since it's the default command
-    $ mix credo --all --format=oneline  # include low priority issues, one issue per line
+    $ mix credo --all --format=json     # include low priority issues, output as JSON
 
     $ mix credo suggest --help          # more options
 
@@ -282,8 +283,25 @@ There are no additional options.
 There are no additional options.
 
 
+### info
+
+`info` shows you information relevant to investigating errors and submitting bug reports.
+
+Example usage:
+
+    $ mix credo info
+    $ mix credo info --verbose
+    $ mix credo info --verbose --format=json
 
 ## Command line options
+
+
+### Output Formats
+
+Use `--format` to format the output in one of the following formats:
+
+- `--format=flycheck` for [Flycheck](http://www.flycheck.org/) output
+- `--format=json` for [JSON](https://www.json.org/) output
 
 
 ### Only run some checks
@@ -346,14 +364,19 @@ Do note with the passed option as filename is a stub that is just used to prefix
 
 ### Using Credo as stand alone
 
-If you do not want or are not allowed to include Credo in the current project you can also install it as an archive:
+If you do not want or are not allowed to include Credo in the current project you can also install it as an archive. For this, you also need to install [bunt](https://github.com/rrrene/bunt):
 
 ```bash
-$ git clone git@github.com:rrrene/credo.git
-$ cd credo
-$ mix deps.get
-$ mix archive.build
-$ mix archive.install
+git clone git@github.com:rrrene/bunt.git
+cd bunt
+mix archive.build
+mix archive.install
+cd -
+git clone git@github.com:rrrene/credo.git
+cd credo
+mix deps.get
+mix archive.build
+mix archive.install
 ```
 
 **Important:** You have to install `bunt` as well:
@@ -371,11 +394,6 @@ You will now be able to invoke credo as usual through Mix with `mix credo`. This
 ### Show code snippets in the output
 
 Use the `--verbose` switch to include the code snippets in question in the output.
-
-
-### Show compact list
-
-Use `--format=oneline` to format the output to represent each issue by a single line.
 
 
 ### Show all issues including low priority ones
@@ -413,14 +431,26 @@ The Refactor checks show you opportunities to avoid future problems and technica
 
 ### Software Design
 
-While refactor checks show you possible problems, these checks try to highlight possibilities, like - potentially intended - duplicated code or _TODO_ and _FIXME_ comments.
+While refactor checks show you possible problems, these checks try to highlight possibilities, like - potentially intended - duplicated code or `TODO:` and `FIXME` annotations.
 
 
 ### Warnings
 
-These checks warn you about things that are potentially dangerous, like a missed call to `IEx.pry` or a call to String.downcase without saving the result.
+These checks warn you about things that are potentially dangerous, like a missed call to `IEx.pry` or a call to `String.downcase` without saving the result.
 
+## Integrations
 
+### IDE/Editor
+
+Some IDEs and editors are able to run Credo in the background and mark issues inline.
+
+* [IntelliJ Elixir](https://github.com/KronicDeth/intellij-elixir#credo) - Elixir plugin for JetBrains IDEs (IntelliJ IDEA, Rubymine, PHPStorm, PyCharm, etc)
+* [linter-elixir-credo](https://atom.io/packages/linter-elixir-credo) - Package for Atom editor (by @smeevil)
+
+### Automated Code Review
+
+* [Codacy](https://www.codacy.com/) - checks your code from style to security, duplication, complexity, and also integrates with coverage.
+* [Stickler CI](https://stickler-ci.com/) - checks your code for style and best practices across your entire stack.
 
 ## Contributing
 

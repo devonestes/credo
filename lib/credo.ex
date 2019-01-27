@@ -1,24 +1,14 @@
 defmodule Credo do
-  use Application
+  @moduledoc """
+  Credo builds upon four building blocks:
 
-  @version Mix.Project.config[:version]
+  - `Credo.CLI` - everything related to the command line interface (CLI), which orchestrates the analysis
+  - `Credo.Execution` - a struct which is handed down the pipeline during analysis
+  - `Credo.Check` - the default Credo checks
+  - `Credo.Code` - all analysis tools used by Credo during analysis
+  """
 
-  def start(_type, _args) do
-    import Supervisor.Spec, warn: false
-
-    children =
-      [
-        worker(Credo.CLI.Output.Shell, []),
-        worker(Credo.Service.Commands, []),
-        worker(Credo.Service.SourceFileWithoutStringAndSigils, []),
-        worker(Credo.Service.SourceFileCodeOnly, []),
-        worker(Credo.Service.SourceFileScopes, []),
-        worker(Credo.Service.SourceFileIssues, []),
-      ]
-
-    opts = [strategy: :one_for_one, name: Credo.Supervisor]
-    Supervisor.start_link(children, opts)
-  end
+  @version Mix.Project.config()[:version]
 
   def version, do: @version
 end

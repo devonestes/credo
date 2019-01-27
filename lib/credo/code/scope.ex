@@ -9,15 +9,25 @@ defmodule Credo.Code.Scope do
 
   @def_ops [:def, :defp, :defmacro]
 
+  @doc """
+  Returns the module part of a scope.
 
+      iex> Credo.Code.Scope.mod_name("Credo.Code")
+      "Credo.Code"
+
+      iex> Credo.Code.Scope.mod_name("Credo.Code.ast")
+      "Credo.Code"
+
+  """
   def mod_name(nil), do: nil
+
   def mod_name(scope_name) do
     names = String.split(scope_name, ".")
     base_name = List.last(names)
 
     if String.match?(base_name, ~r/^[a-z]/) do
       names
-      |> Enum.slice(0..length(names) - 2)
+      |> Enum.slice(0..(length(names) - 2))
       |> Enum.join(".")
     else
       scope_name
@@ -31,64 +41,97 @@ defmodule Credo.Code.Scope do
 
   Examples:
 
-    {:defmodule, "Foo.Bar"}
-    {:def, "Foo.Bar.baz"}
+      {:defmodule, "Foo.Bar"}
+      {:def, "Foo.Bar.baz"}
   """
-  def name(_ast, [line: 0]), do: nil
-  def name(ast, [line: line]) do
+  def name(_ast, line: 0), do: nil
+
+  def name(ast, line: line) do
     result =
       case find_scope(ast, line, [], nil) do
-        nil -> name(ast, line: line - 1)
-        {op, list} -> {op, Enum.join(list, ".")}
+        nil ->
+          name(ast, line: line - 1)
+
+        {op, list} ->
+          name =
+            list
+            |> Enum.map(&name_to_string/1)
+            |> Enum.join(".")
+
+          {op, name}
       end
 
     result || {nil, ""}
   end
 
+  defp name_to_string(atom) when is_atom(atom), do: to_string(atom)
+  defp name_to_string(term), do: Macro.to_string(term)
+
   # Returns a List for the scope name
   defp find_scope({:__block__, _meta, arguments}, line, name_list, last_op) do
     find_scope(arguments, line, name_list, last_op)
   end
+
   defp find_scope({:do, arguments}, line, name_list, last_op) do
     find_scope(arguments, line, name_list, last_op)
   end
+
   defp find_scope({:else, arguments}, line, name_list, last_op) do
     find_scope(arguments, line, name_list, last_op)
   end
+
   defp find_scope(list, line, name_list, last_op) when is_list(list) do
     Enum.find_value(list, &find_scope(&1, line, name_list, last_op))
   end
-  defp find_scope({:defmodule, meta, [{:__aliases__, _, module_name}, arguments]}, line, name_list, _last_op) do
+
+  defp find_scope(
+         {:defmodule, meta, [{:__aliases__, _, module_name}, arguments]},
+         line,
+         name_list,
+         _last_op
+       ) do
     name_list = name_list ++ module_name
 
     cond do
       meta[:line] == line ->
         {:defmodule, name_list}
+
       meta[:line] > line ->
         nil
+
       true ->
         arguments
-        |> Block.do_block_for!
+        |> Block.do_block_for!()
         |> find_scope(line, name_list, :defmodule)
     end
   end
+
   for op <- @def_ops do
-    defp find_scope({unquote(op) = op, meta, arguments} = ast, line, name_list, _last_op) when is_list(arguments) do
+    defp find_scope(
+           {unquote(op) = op, meta, arguments} = ast,
+           line,
+           name_list,
+           _last_op
+         )
+         when is_list(arguments) do
       fun_name = Module.def_name(ast)
       name_list = name_list ++ [fun_name]
 
       cond do
         meta[:line] == line ->
           {op, name_list}
+
         meta[:line] > line ->
           nil
+
         true ->
           arguments
-          |> Block.do_block_for!
+          |> Block.do_block_for!()
           |> find_scope(line, name_list, op)
       end
     end
   end
+
   defp find_scope({_atom, meta, arguments}, line, name_list, last_op) do
     if meta[:line] == line do
       {last_op, name_list}
@@ -96,6 +139,7 @@ defmodule Credo.Code.Scope do
       find_scope(arguments, line, name_list, last_op)
     end
   end
+
   defp find_scope(_value, _line, _name_list, _last_op) do
     nil
   end

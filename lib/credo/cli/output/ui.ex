@@ -1,25 +1,52 @@
 defmodule Credo.CLI.Output.UI do
+  @moduledoc """
+  This module provides functions used to create the UI.
+
+      >>> alias Credo.CLI.Output.UI
+      >>> UI.puts "This is a test."
+      This is a test.
+      nil
+
+      >>> alias Credo.CLI.Output.UI
+      >>> UI.warn "This is a warning."
+      This is a warning.
+      nil
+
+  """
+
   @edge "┃"
   @ellipsis "…"
   @shell_service Credo.CLI.Output.Shell
 
+  if Mix.env() == :test do
+    def puts, do: nil
+    def puts(_), do: nil
+    def puts(_, color) when is_atom(color), do: nil
+
+    def warn(_), do: nil
+  else
+    defdelegate puts, to: @shell_service
+    defdelegate puts(v), to: @shell_service
+
+    def puts(v, color) when is_atom(color) do
+      @shell_service.puts([color, v])
+    end
+
+    defdelegate warn(v), to: @shell_service
+  end
+
   def edge(color, indent \\ 2) when is_integer(indent) do
-    [:reset, color, @edge |> String.ljust(indent)]
+    [:reset, color, @edge |> String.pad_trailing(indent)]
   end
 
-  def use_colors(config) do
-    @shell_service.use_colors(config.color)
+  @doc "Returns the edge (`┃`) which is used in much of Credo's output as a binary."
+  def edge, do: @edge
 
-    config
+  def use_colors(exec) do
+    @shell_service.use_colors(exec.color)
+
+    exec
   end
-
-  defdelegate puts, to: @shell_service
-  defdelegate puts(v), to: @shell_service
-  def puts(v, color) when is_atom(color) do
-    @shell_service.puts([color, v])
-  end
-
-  defdelegate warn(v), to: @shell_service
 
   def puts_edge(color, indent \\ 2) when is_integer(indent) do
     color
@@ -28,7 +55,9 @@ defmodule Credo.CLI.Output.UI do
   end
 
   def wrap_at(text, number) do
-    "(?:((?>.{1,#{number}}(?:(?<=[^\\S\\r\\n])[^\\S\\r\\n]?|(?=\\r?\\n)|$|[^\\S\\r\\n]))|.{1,#{number}})(?:\\r?\\n)?|(?:\\r?\\n|$))"
+    "(?:((?>.{1,#{number}}(?:(?<=[^\\S\\r\\n])[^\\S\\r\\n]?|(?=\\r?\\n)|$|[^\\S\\r\\n]))|.{1,#{
+      number
+    }})(?:\\r?\\n)?|(?:\\r?\\n|$))"
     |> Regex.compile!("u")
     |> Regex.scan(text)
     |> Enum.map(&List.first/1)
@@ -48,16 +77,21 @@ defmodule Credo.CLI.Output.UI do
       "  m ..."
   """
   def truncate(_line, max_length) when max_length <= 0, do: ""
+
   def truncate(line, max_length) when max_length > 0 do
     truncate(line, max_length, @ellipsis)
   end
+
   def truncate(_line, max_length, _ellipsis) when max_length <= 0, do: ""
+
   def truncate(line, max_length, ellipsis) when max_length > 0 do
     cond do
       String.length(line) <= max_length ->
         line
+
       String.length(ellipsis) >= max_length ->
         ellipsis
+
       true ->
         chars_to_display = max_length - String.length(ellipsis)
         String.slice(line, 0, chars_to_display) <> ellipsis

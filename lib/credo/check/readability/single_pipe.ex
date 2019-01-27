@@ -1,5 +1,7 @@
 defmodule Credo.Check.Readability.SinglePipe do
-  @moduledoc """
+  @moduledoc false
+
+  @checkdoc """
   Pipes (`|>`) should only be used when piping data through multiple calls.
 
   So while this is fine:
@@ -7,12 +9,12 @@ defmodule Credo.Check.Readability.SinglePipe do
       list
       |> Enum.take(5)
       |> Enum.shuffle
-      |> evaluate
+      |> evaluate()
 
   The code in this example ...
 
       list
-      |> evaluate
+      |> evaluate()
 
   ... should be refactored to look like this:
 
@@ -21,17 +23,16 @@ defmodule Credo.Check.Readability.SinglePipe do
   Using a single |> to invoke functions makes the code harder to read. Instead,
   write a function call when a pipeline is only one function long.
   """
-
-  @explanation [check: @moduledoc]
+  @explanation [check: @checkdoc]
 
   use Credo.Check, base_priority: :high
 
   @doc false
-  def run(%SourceFile{ast: ast} = source_file, params \\ []) do
+  def run(source_file, params \\ []) do
     issue_meta = IssueMeta.for(source_file, params)
 
     {_continue, issues} =
-      Credo.Code.prewalk(ast, &traverse(&1, &2, issue_meta), {true, []})
+      Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta), {true, []})
 
     issues
   end
@@ -41,7 +42,10 @@ defmodule Credo.Check.Readability.SinglePipe do
   end
 
   defp traverse({:|>, meta, _} = ast, {true, issues}, issue_meta) do
-    {ast, {false, issues ++ [issue_for(issue_meta, meta[:line], "single pipe")]}}
+    {
+      ast,
+      {false, issues ++ [issue_for(issue_meta, meta[:line], "single pipe")]}
+    }
   end
 
   defp traverse(ast, {_, issues}, _issue_meta) do
@@ -49,9 +53,11 @@ defmodule Credo.Check.Readability.SinglePipe do
   end
 
   def issue_for(issue_meta, line_no, trigger) do
-    format_issue issue_meta,
+    format_issue(
+      issue_meta,
       message: "Use a function call when a pipeline is only one function long",
       trigger: trigger,
       line_no: line_no
+    )
   end
 end

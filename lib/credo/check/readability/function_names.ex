@@ -1,5 +1,7 @@
 defmodule Credo.Check.Readability.FunctionNames do
-  @moduledoc """
+  @moduledoc false
+
+  @checkdoc """
   Function and macro names are always written in snake_case in Elixir.
 
       # snake_case
@@ -16,13 +18,12 @@ defmodule Credo.Check.Readability.FunctionNames do
   But you can improve the odds of others reading and liking your code by making
   it easier to follow.
   """
-
-  @explanation [check: @moduledoc]
+  @explanation [check: @checkdoc]
   @def_ops [:def, :defp, :defmacro]
 
-  alias Credo.Code.Name
-
   use Credo.Check, base_priority: :high
+
+  alias Credo.Code.Name
 
   @doc false
   def run(%SourceFile{} = source_file, params \\ []) do
@@ -36,10 +37,12 @@ defmodule Credo.Check.Readability.FunctionNames do
     defp traverse({unquote(op), _meta, nil} = ast, issues, _issue_meta) do
       {ast, issues}
     end
+
     defp traverse({unquote(op), _meta, arguments} = ast, issues, issue_meta) do
       {ast, issues_for_definition(arguments, issues, issue_meta)}
     end
   end
+
   defp traverse(ast, issues, _issue_meta) do
     {ast, issues}
   end
@@ -48,13 +51,14 @@ defmodule Credo.Check.Readability.FunctionNames do
     case Enum.at(body, 0) do
       {name, meta, nil} ->
         issues_for_name(name, meta, issues, issue_meta)
+
       _ ->
         issues
     end
   end
 
   def issues_for_name(name, meta, issues, issue_meta) do
-    if name |> to_string |> Name.snake_case? do
+    if name |> to_string |> Name.snake_case?() do
       issues
     else
       [issue_for(issue_meta, meta[:line], name) | issues]
@@ -62,9 +66,11 @@ defmodule Credo.Check.Readability.FunctionNames do
   end
 
   defp issue_for(issue_meta, line_no, trigger) do
-    format_issue issue_meta,
+    format_issue(
+      issue_meta,
       message: "Function/macro names should be written in snake_case.",
       trigger: trigger,
       line_no: line_no
+    )
   end
 end

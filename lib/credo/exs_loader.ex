@@ -1,29 +1,48 @@
 defmodule Credo.ExsLoader do
+  @moduledoc false
+
   def parse(exs_string, safe \\ false)
+
   def parse(exs_string, true) do
     case Code.string_to_quoted(exs_string) do
       {:ok, ast} ->
-        process_exs(ast)
-      _ -> %{}
+        {:ok, process_exs(ast)}
+
+      {:error, value} ->
+        {:error, value}
     end
   end
+
   def parse(exs_string, false) do
     {result, _binding} = Code.eval_string(exs_string)
-    result
+
+    {:ok, result}
+  rescue
+    error ->
+      case error do
+        %SyntaxError{description: "syntax error before: " <> trigger, line: line_no} ->
+          {:error, {line_no, "syntax error before: ", trigger}}
+
+        error ->
+          {:error, error}
+      end
   end
 
+  @doc false
   def parse_safe(exs_string) do
     case Code.string_to_quoted(exs_string) do
       {:ok, ast} ->
         process_exs(ast)
-      _ -> %{}
+
+      _ ->
+        %{}
     end
   end
 
-  defp process_exs(v) when is_atom(v)
-                        or is_binary(v)
-                        or is_float(v)
-                        or is_integer(v), do: v
+  defp process_exs(v)
+       when is_atom(v) or is_binary(v) or is_float(v) or is_integer(v),
+       do: v
+
   defp process_exs(list) when is_list(list) do
     Enum.map(list, &process_exs/1)
   end
@@ -58,7 +77,8 @@ defmodule Credo.ExsLoader do
   end
 
   defp process_tuple([], acc), do: acc
-  defp process_tuple([head|tail], acc) do
+
+  defp process_tuple([head | tail], acc) do
     acc = process_tuple_item(head, acc)
     process_tuple(tail, acc)
   end
@@ -68,12 +88,14 @@ defmodule Credo.ExsLoader do
   end
 
   defp process_map([], acc), do: acc
-  defp process_map([head|tail], acc) do
+
+  defp process_map([head | tail], acc) do
     acc = process_map_item(head, acc)
     process_map(tail, acc)
   end
 
-  defp process_map_item({key, value}, acc) when is_atom(key) or is_binary(key) do
+  defp process_map_item({key, value}, acc)
+       when is_atom(key) or is_binary(key) do
     Map.put(acc, key, process_exs(value))
   end
 end

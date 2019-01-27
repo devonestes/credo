@@ -1,5 +1,7 @@
 defmodule Credo.Check.Consistency.MultiAliasImportRequireUse do
-  @moduledoc """
+  @moduledoc false
+
+  @checkdoc """
   When using alias, import, require or use for multiple names from the same
   namespace, you have two options:
 
@@ -16,38 +18,31 @@ defmodule Credo.Check.Consistency.MultiAliasImportRequireUse do
   While this is not necessarily a concern for the correctness of your code,
   you should use a consistent style throughout your codebase.
   """
-
-  @explanation [check: @moduledoc]
-
-  @code_patterns [
-    Credo.Check.Consistency.MultiAliasImportRequireUse.Multi,
-    Credo.Check.Consistency.MultiAliasImportRequireUse.Single
-  ]
-
-  alias Credo.Check.Consistency.Helper
+  @explanation [check: @checkdoc]
+  @collector Credo.Check.Consistency.MultiAliasImportRequireUse.Collector
 
   use Credo.Check, run_on_all: true, base_priority: :high
 
   @doc false
-  def run(source_files, params \\ []) when is_list(source_files) do
-    source_files
-    |> Helper.run_code_patterns(@code_patterns, params)
-    |> Helper.append_issues_via_issue_service(&issue_for/5, params)
-    :ok
+  def run(source_files, exec, params \\ []) when is_list(source_files) do
+    @collector.find_and_append_issues(source_files, exec, params, &issues_for/3)
   end
 
-  defp issue_for(_issue_meta, _actual_props, nil, _picked_count, _total_count), do: nil
-  defp issue_for(_issue_meta, [], _expected_prop, _picked_count, _total_count), do: nil
-  defp issue_for(issue_meta, {_x, _value, meta} = actual_prop, _expected_prop, _picked_count, _total_count) do
-    format_issue issue_meta,
-      message: message_for(actual_prop),
-      line_no: meta[:line_no]
+  defp issues_for(expected, source_file, params) do
+    issue_meta = IssueMeta.for(source_file, params)
+
+    issue_locations = @collector.find_locations_not_matching(expected, source_file)
+
+    Enum.map(issue_locations, fn line_no ->
+      format_issue(issue_meta, message: message_for(expected), line_no: line_no)
+    end)
   end
 
-  defp message_for({_, :single_alias_import_require_use, _}) do
+  defp message_for(:multi = _expected) do
     "Most of the time you are using the multi-alias/require/import/use syntax, but here you are using multiple single directives"
   end
-  defp message_for({_, :multi_alias_import_require_use, _}) do
+
+  defp message_for(:single = _expected) do
     "Most of the time you are using the multiple single line alias/require/import/use directives but here you are using the multi-alias/require/import/use syntax"
   end
 end

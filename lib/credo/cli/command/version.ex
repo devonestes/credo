@@ -1,12 +1,16 @@
 defmodule Credo.CLI.Command.Version do
+  @moduledoc false
+
+  @shortdoc "Show Credo's version number"
+
   use Credo.CLI.Command
 
   alias Credo.CLI.Output.UI
 
   @doc false
-  def run(_) do
-    UI.puts Credo.version
+  def call(exec, _opts) do
+    UI.puts(Credo.version())
 
-    :ok
+    exec
   end
 end

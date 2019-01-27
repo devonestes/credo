@@ -1,6 +1,10 @@
 defmodule Credo.Check.Refactor.DoubleBooleanNegation do
-  @moduledoc """
+  @moduledoc false
+
+  @checkdoc """
   Having double negations in your code obscures a parameters original value.
+
+      # NOT preferred
 
       !!var
 
@@ -20,42 +24,47 @@ defmodule Credo.Check.Refactor.DoubleBooleanNegation do
   In these case, you would be better off making the cast explicit by introducing
   a helper function:
 
+      # preferred
+
       defp present?(nil), do: false
       defp present?(false), do: false
       defp present?(_), do: true
 
   This makes your code more explicit than relying on the implications of `!!`.
   """
-
-  @explanation [check: @moduledoc]
+  @explanation [check: @checkdoc]
 
   use Credo.Check, base_priority: :low
 
   @doc false
-  def run(%SourceFile{} = source_file, params \\ []) do
+  def run(source_file, params \\ []) do
     issue_meta = IssueMeta.for(source_file, params)
 
     Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta))
   end
 
   # Checking for `!!`
-  defp traverse({:!, [line: line_no], [{:!, _, ast}]}, issues, issue_meta) do
+  defp traverse({:!, meta, [{:!, _, ast}]}, issues, issue_meta) do
     issue =
-      format_issue issue_meta,
+      format_issue(
+        issue_meta,
         message: "Double boolean negation found.",
         trigger: "!!",
-        line_no: line_no
+        line_no: meta[:line]
+      )
 
     {ast, [issue | issues]}
   end
 
   # Checking for `not not`
-  defp traverse({:not, [line: line_no], [{:not, _, ast}]}, issues, issue_meta) do
+  defp traverse({:not, meta, [{:not, _, ast}]}, issues, issue_meta) do
     issue =
-      format_issue issue_meta,
+      format_issue(
+        issue_meta,
         message: "Double boolean negation found.",
         trigger: "not not",
-        line_no: line_no
+        line_no: meta[:line]
+      )
 
     {ast, [issue | issues]}
   end

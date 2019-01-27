@@ -1,4 +1,8 @@
 defmodule Credo.CLI.Output.Shell do
+  @moduledoc false
+
+  # This module is used by `Credo.CLI.Output.UI` to write to the shell.
+
   use GenServer
 
   def start_link(opts \\ []) do
@@ -8,6 +12,8 @@ defmodule Credo.CLI.Output.Shell do
   def puts do
     puts("")
   end
+
+  @doc "Write the given `value` to `:stdout`."
   def puts(value) do
     GenServer.call(__MODULE__, {:puts, value})
   end
@@ -16,7 +22,7 @@ defmodule Credo.CLI.Output.Shell do
     GenServer.call(__MODULE__, {:use_colors, use_colors})
   end
 
-  @doc "Like `puts`, but writes to `:stderr`."
+  @doc "Like `puts/1`, but writes to `:stderr`."
   def warn(value) do
     GenServer.call(__MODULE__, {:warn, value})
   end
@@ -34,32 +40,45 @@ defmodule Credo.CLI.Output.Shell do
   end
 
   def handle_call({:puts, value}, _from, %{use_colors: true} = current_state) do
-    Bunt.puts(value)
+    do_puts(value)
 
     {:reply, nil, current_state}
   end
+
   def handle_call({:puts, value}, _from, %{use_colors: false} = current_state) do
     value
-    |> List.wrap
-    |> List.flatten
-    |> Enum.reject(&is_atom/1)
-    |> Bunt.puts
+    |> remove_colors()
+    |> do_puts()
 
     {:reply, nil, current_state}
   end
 
   def handle_call({:warn, value}, _from, %{use_colors: true} = current_state) do
-    Bunt.warn(value)
+    do_warn(value)
 
     {:reply, nil, current_state}
   end
+
   def handle_call({:warn, value}, _from, %{use_colors: false} = current_state) do
     value
-    |> List.wrap
-    |> List.flatten
-    |> Enum.reject(&is_atom/1)
-    |> Bunt.warn
+    |> remove_colors()
+    |> do_warn()
 
     {:reply, nil, current_state}
+  end
+
+  defp remove_colors(value) do
+    value
+    |> List.wrap()
+    |> List.flatten()
+    |> Enum.reject(&is_atom/1)
+  end
+
+  defp do_puts(value) do
+    Bunt.puts(value)
+  end
+
+  defp do_warn(value) do
+    Bunt.warn(value)
   end
 end
